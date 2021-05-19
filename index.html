@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>IndexedDB: Almacenamiento local con HTML5</title>
+    <link type="text/css" rel="stylesheet" href="../00_gen/cssbase.css" media="screen" />
+    <style>
+        html, body{
+            background: #fff;
+        }
+        header{
+            width: 100%;
+            background: #ccc;
+            padding: 10px 0;
+            text-align: center;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            font-size: 1.4rem;
+        }
+        section{
+            width: 80%;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Manejo de datos en local con html5</h1>
+    </header>
+	<section>
+        <form>
+            <input type="text" id="dni" placeholder="Enter dni" />
+            <input type="text" id="name" placeholder="Enter name" />
+            <input type="text" id="surname" placeholder="Enter surname" />
+            <button type="button" onclick="manPerson('add','');">Save</button>
+        </form>
+        <hr>
+        <form>
+            <select id="ind">
+                <option value="dni">DNI</option>
+                <option value="name">Nombre</option>
+            </select>
+            <select id="rango">
+                <option value="full">Completo</option>
+                <option value="part">Incluye</option>
+            </select>
+            <input type="text" id="dat" placeholder="texto a buscar" />
+            <button type="button" onclick="manPerson('busc','','','');">Buscar</button>
+        </form>
+        <div id="elements">
+            <table>
+                <caption>Personas</caption>
+                <thead>
+                    <tr>
+                        <th>DNI</th>
+                        <th>Name</th>
+                        <th> </th>
+                    </tr>
+                </thead>
+                <tbody id="elementsList">
+                    <tr>
+                        <td colspan="3">Not elements to show</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div> 
+        <button type="button" onclick="manPerson('lista','name','string','');">Order by name</button>  
+        <button type="button" onclick="manPerson('lista','dni','string','');">Order by dni</button>  
+        <button type="button" onclick="manPerson('lista','','','');">Order by id</button> 
+    </section>
+    <footer>
+        <div id="dat"></div>
+    </footer>
+    <script defer src="Indxdb.js"></script>
+    <script>
+        var idb = null;
+        var basedat = {
+            nom: "idbprob",
+            ver: 1,
+            inic: 'inicPerson',
+            conte: [
+                {
+                    nom:"personas",
+                    key:"id",
+                    auto:true,
+                    index:[
+                        {cod:"name",nom:"name",options:{unique:false}},
+                        {cod:"dni",nom:"dni",options:{unique:true}}
+                    ]
+                }/*,
+                {
+                    nom:"vehiculos",
+                    key:"id",
+                    auto:true,
+                    index:[
+                        {cod:"name",nom:"name",options:{unique:false}}
+                    ]
+                }*/
+            ],
+            delconte: [] /*['vehiculos']*/
+        }
+        window.onload = function() { 
+            // nom,ver,conte,funcfin
+            idb = new Inxdb(basedat.nom,basedat.ver,basedat.conte,basedat.delconte,basedat.inic);
+        }
+
+        
+        
+        // manejo de personas
+        function inicPerson() {
+            // listo todas las personas
+            manPerson("lista","","","") 
+        }
+        function manPerson(acc,ind,tipo,dat) {
+            let funcfin = "manPersonOK";
+            switch(acc) {
+                case "add":
+                    tipo = rango = "";
+                    dat = {
+                        dni : document.querySelector("#dni").value,
+                        name : document.querySelector("#name").value.toLowerCase(),
+                        surname : document.querySelector("#surname").value
+                    };
+                    break;
+                case "busc":
+                    ind = document.querySelector("#ind").value;
+                    rango = document.querySelector("#rango").value;
+                    tipo = "string";
+                    if(ind === "id") { tipo = "number"; }
+                    dat = document.querySelector("#dat").value;
+                    break;
+                case "lista": 
+                    funcfin = "listPerson";
+                    acc = "load";
+                    break;
+            }
+            // accion, contenedor, indice, tipoindice, datos, funcionfinal
+            //idbaction(acc,'personas',ind,tipo,rango,dat,funcfin);
+            idb.listado(acc,'personas',ind,tipo,rango,dat,funcfin);
+        }
+        function manPersonOK(data) {
+            console.log(data);
+            let recargar = true;
+            switch(data.acc) {
+                case "add":
+                    document.querySelector('#dni').value = '';
+                    document.querySelector('#name').value = '';
+                    document.querySelector('#surname').value = '';
+                    break;
+                case "info":
+                    alert("ID: " + data.dat.id + "\n\
+                    DNI: " + data.dat.dni + "\n\
+                    Name: " + data.dat.name + "\n\
+                    Surname: " + data.dat.surname);
+                    document.querySelector('#dat').value = '';
+                    recargar = false;
+                    break;
+                case "busc":
+                    document.querySelector('#dat').value = '';
+                    listPerson(data);
+                    recargar = false;
+                    break;
+            }
+            // recargamos los datos en pantalla
+            if(recargar) { idb.listado("load",'personas','','','','','listPerson'); }
+        }
+        function listPerson(data) {
+            console.log("recogida lista de personas")
+            console.log(data)
+            let elhtml = "";
+            if(data.dat.length > 0) {
+                for (var key in data.dat) {
+                    elhtml += '\n\
+                    <tr>\n\
+                        <td>' + data.dat[key].dni + '</td>\n\
+                        <td>' + data.dat[key].name + '</td>\n\
+                        <td>\n\
+                            <button type="button" onclick="manPerson(\'info\',\'\',\'number\',' + data.dat[key].id + ')">Details</button>\n\
+                        </td>\n\
+                        <td>\n\
+                            <button type="button" onclick="manPerson(\'del\',\'\',\'\',' + data.dat[key].id + ')">Borrar</button>\n\
+                        </td>\n\
+                    </tr>';
+                }
+            }else{
+                elhtml += "No hay datos.";
+            }
+            document.querySelector("#elementsList").innerHTML = elhtml;
+        }
+    </script>
+</body>
+</html>
